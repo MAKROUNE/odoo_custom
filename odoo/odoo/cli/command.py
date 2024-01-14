@@ -1,40 +1,35 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+from __future__ import print_function
 import logging
-import os
 import sys
-from pathlib import Path
+import os
+from os.path import join as joinpath, isdir
 
 import odoo
-from odoo.modules import get_modules, get_module_path, initialize_sys_path
+from odoo.modules import get_modules, get_module_path
 
 commands = {}
-class Command:
-    name = None
-    def __init_subclass__(cls):
-        cls.name = cls.name or cls.__name__.lower()
-        commands[cls.name] = cls
 
+class CommandType(type):
+    def __init__(cls, name, bases, attrs):
+        super(CommandType, cls).__init__(name, bases, attrs)
+        name = getattr(cls, name, cls.__name__.lower())
+        cls.name = name
+        if name != 'command':
+            commands[name] = cls
 
-ODOO_HELP = """\
-Odoo CLI, use '{odoo_bin} --help' for regular server options.
-
-Available commands:
-    {command_list}
-
-Use '{odoo_bin} <command> --help' for individual command help."""
+Command = CommandType('Command', (object,), {'run': lambda self, args: None})
 
 class Help(Command):
-    """ Display the list of available commands """
+    """Display the list of available commands"""
     def run(self, args):
-        padding = max([len(cmd) for cmd in commands]) + 2
-        command_list = "\n    ".join([
-            "    {}{}".format(name.ljust(padding), (command.__doc__ or "").strip())
-            for name, command in sorted(commands.items())
-        ])
-        print(ODOO_HELP.format(  # pylint: disable=bad-builtin
-            odoo_bin=Path(sys.argv[0]).name,
-            command_list=command_list
-        ))
+        print("Available commands:\n")
+        names = list(commands)
+        padding = max([len(k) for k in names]) + 2
+        for k in sorted(names):
+            name = k.ljust(padding, ' ')
+            doc = (commands[k].__doc__ or '').strip()
+            print("    %s%s" % (name, doc))
+        print("\nUse '%s <command> --help' for individual command help." % sys.argv[0].split(os.path.sep)[-1])
 
 def main():
     args = sys.argv[1:]
@@ -53,9 +48,8 @@ def main():
     # Subcommand discovery
     if len(args) and not args[0].startswith("-"):
         logging.disable(logging.CRITICAL)
-        initialize_sys_path()
         for module in get_modules():
-            if (Path(get_module_path(module)) / 'cli').is_dir():
+            if isdir(joinpath(get_module_path(module), 'cli')):
                 __import__('odoo.addons.' + module)
         logging.disable(logging.NOTSET)
         command = args[0]
@@ -65,4 +59,4 @@ def main():
         o = commands[command]()
         o.run(args)
     else:
-        sys.exit('Unknown command %r' % (command,))
+        sys.exit('Unknow command %r' % (command,))

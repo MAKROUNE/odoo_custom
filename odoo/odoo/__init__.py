@@ -3,25 +3,17 @@
 
 """ OpenERP core library."""
 
-
 #----------------------------------------------------------
 # odoo must be a namespace package for odoo.addons to become one too
 # https://packaging.python.org/guides/packaging-namespace-packages/
 #----------------------------------------------------------
-import pkgutil
-import os.path
-__path__ = [
-    os.path.abspath(path)
-    for path in pkgutil.extend_path(__path__, __name__)
-]
-
-import sys
-assert sys.version_info > (3, 7), "Outdated python version detected, Odoo requires Python >= 3.7 to run."
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
 #----------------------------------------------------------
 # Running mode flags (gevent, prefork)
 #----------------------------------------------------------
 # Is the server running with gevent.
+import sys
 evented = False
 if len(sys.argv) > 1 and sys.argv[1] == 'gevent':
     sys.argv.remove('gevent')
@@ -67,30 +59,10 @@ if hasattr(time, 'tzset'):
     time.tzset()
 
 #----------------------------------------------------------
-# PyPDF2 hack
-# ensure that zlib does not throw error -5 when decompressing
-# because some pdf won't fit into allocated memory
-# https://docs.python.org/3/library/zlib.html#zlib.decompressobj
-# ----------------------------------------------------------
-import PyPDF2
-
-try:
-    import zlib
-
-    def _decompress(data):
-        zobj = zlib.decompressobj()
-        return zobj.decompress(data)
-
-    PyPDF2.filters.decompress = _decompress
-except ImportError:
-    pass # no fix required
-
-#----------------------------------------------------------
 # Shortcuts
 #----------------------------------------------------------
 # The hard-coded super-user id (a.k.a. administrator, or root user).
 SUPERUSER_ID = 1
-
 
 def registry(database_name=None):
     """
@@ -100,13 +72,12 @@ def registry(database_name=None):
     """
     if database_name is None:
         import threading
-        database_name = threading.current_thread().dbname
+        database_name = threading.currentThread().dbname
     return modules.registry.Registry(database_name)
 
 #----------------------------------------------------------
 # Imports
 #----------------------------------------------------------
-from . import upgrade  # this namespace must be imported first
 from . import addons
 from . import conf
 from . import loglevels
@@ -124,8 +95,7 @@ from . import tools
 from . import models
 from . import fields
 from . import api
-from odoo.tools.translate import _, _lt
-from odoo.fields import Command
+from odoo.tools.translate import _
 
 #----------------------------------------------------------
 # Other imports, which may require stuff from above

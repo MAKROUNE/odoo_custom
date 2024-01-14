@@ -1,10 +1,11 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
 import argparse
 import glob
 import itertools
 import os
 import sys
-from pathlib import Path
 
 import odoo
 from . import Command
@@ -14,7 +15,7 @@ from odoo.service.db import _create_empty_database, DatabaseExists
 
 
 class Start(Command):
-    """ Quickly start the odoo server with default options """
+    """Quick start the Odoo server for your project"""
 
     def get_module_list(self, path):
         mods = itertools.chain.from_iterable(
@@ -24,10 +25,9 @@ class Start(Command):
         return [mod.split(os.path.sep)[-2] for mod in mods]
 
     def run(self, cmdargs):
-        odoo.tools.config.parser.prog = f'{Path(sys.argv[0]).name} {self.name}'
         parser = argparse.ArgumentParser(
-            prog=f'{Path(sys.argv[0]).name} {self.name}',
-            description=self.__doc__.strip(),
+            prog="%s start" % sys.argv[0].split(os.path.sep)[-1],
+            description=self.__doc__
         )
         parser.add_argument('--path', default=".",
             help="Directory where your project's modules are stored (will autodetect from current dir)")

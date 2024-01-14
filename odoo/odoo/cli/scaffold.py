@@ -1,9 +1,10 @@
-# Part of Odoo. See LICENSE file for full copyright and licensing details.
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
 import argparse
 import os
 import re
 import sys
-from pathlib import Path
 
 import jinja2
 
@@ -15,7 +16,7 @@ class Scaffold(Command):
     def run(self, cmdargs):
         # TODO: bash completion file
         parser = argparse.ArgumentParser(
-            prog=f'{Path(sys.argv[0]).name} {self.name}',
+            prog="%s scaffold" % sys.argv[0].split(os.path.sep)[-1],
             description=self.__doc__,
             epilog=self.epilog(),
         )

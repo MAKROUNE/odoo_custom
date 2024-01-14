@@ -58,7 +58,10 @@ class Graph(dict):
         packages = []
         len_graph = len(self)
         for module in module_list:
-            info = odoo.modules.module.get_manifest(module)
+            # This will raise an exception if no/unreadable descriptor file.
+            # NOTE The call to load_information_from_description_file is already
+            # done by db.initialize, so it is possible to not do it again here.
+            info = odoo.modules.module.load_information_from_description_file(module)
             if info and info['installable']:
                 packages.append((module, info)) # TODO directly a dict, like in get_modules_with_version
             elif module != 'studio_customization':
@@ -91,7 +94,7 @@ class Graph(dict):
 
         for package in later:
             unmet_deps = [p for p in dependencies[package] if p not in self]
-            _logger.info('module %s: Unmet dependencies: %s', package, ', '.join(unmet_deps))
+            _logger.error('module %s: Unmet dependencies: %s', package, ', '.join(unmet_deps))
 
         return len(self) - len_graph
 
@@ -114,7 +117,7 @@ class Node(object):
 
     Node acts as a per-module singleton. A node is constructed via
     Graph.add_module() or Graph.add_modules(). Some of its fields are from
-    ir_module_module (set by Graph.update_from_db()).
+    ir_module_module (setted by Graph.update_from_db()).
 
     """
     def __new__(cls, name, graph, info):
@@ -173,17 +176,3 @@ class Node(object):
         for c in self.children:
             s += '%s`-> %s' % ('   ' * depth, c._pprint(depth+1))
         return s
-
-    def should_have_demo(self):
-        return (hasattr(self, 'demo') or (self.dbdemo and self.state != 'installed')) and all(p.dbdemo for p in self.parents)
-
-    @property
-    def parents(self):
-        if self.depth == 0:
-            return []
-
-        return (
-            node for node in self.graph.values()
-            if node.depth < self.depth
-            if self in node.children
-        )

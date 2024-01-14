@@ -3,9 +3,9 @@
 
 {
     'name': 'ESC/POS Hardware Driver',
-    'category': 'Sales/Point of Sale',
+    'category': 'Point of Sale',
     'sequence': 6,
-    'website': 'https://www.odoo.com/app/point-of-sale-hardware',
+    'website': 'https://www.odoo.com/page/point-of-sale',
     'summary': 'Hardware Driver for ESC/POS Printers and Cashdrawers',
     'description': """
 ESC/POS Hardware Driver
@@ -16,9 +16,8 @@ to open ESC/POS controlled cashdrawers in the point of sale and other modules
 that would need such functionality.
 
 """,
+    'depends': ['hw_proxy'],
     'external_dependencies': {
-        'python' : ['pyusb','pyserial','qrcode'],
+        'python' : ['usb.core','serial','qrcode'],
     },
-    'installable': False,
-    'license': 'LGPL-3',
 }

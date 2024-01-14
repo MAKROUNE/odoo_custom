@@ -329,7 +329,7 @@ function Point(x,y){
  * Stroke = mousedown + mousemoved * n (+ mouseup but we don't record that as that was the "end / lack of movement" indicator)
  * 
  * Vectors = not classical vectors where numbers indicated shift relative last position. Our vectors are actually coordinates against top left of canvas.
- *          we could calc the classical vectors, but keeping the actual coordinates allows us (through Math.max / min)
+ *          we could calc the classical vectors, but keeping the the actual coordinates allows us (through Math.max / min) 
  *          to calc the size of resulting drawing very quickly. If we want classical vectors later, we can always get them in backend code.
  * 
  * So, the data structure:
@@ -736,7 +736,6 @@ function jSignatureClass(parent, options, instanceExtensions) {
         ,'color' : '#000'
         ,'background-color': '#fff'
         ,'decor-color': '#eee'
-        ,'show-stroke': true
         ,'lineWidth' : 0
         ,'minFatFingerCompensation' : -10
         ,'showUndoButton': false
@@ -978,7 +977,7 @@ jSignatureClass.prototype.resetCanvas = function(data, dontClear){
     ctx.lineCap = ctx.lineJoin = "round";
     
     // signature line
-    if (null != settings['decor-color'] && settings['show-stroke']) {
+    if (null != settings['decor-color']) {
         ctx.strokeStyle = settings['decor-color'];
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;

@@ -5,43 +5,63 @@
 
 from collections import defaultdict
 import glob
-import importlib.util
 import logging
 import os
 from os.path import join as opj
 
 from odoo.modules.module import get_resource_path
 import odoo.release as release
-import odoo.upgrade
+import odoo.tools as tools
 from odoo.tools.parse_version import parse_version
+from odoo.tools import pycompat
+
+if pycompat.PY2:
+    import imp
+    def load_script(path, module_name):
+        fp, fname = tools.file_open(path, pathinfo=True)
+        fp2 = None
+
+        # pylint: disable=file-builtin,undefined-variable
+        if not isinstance(fp, file):
+            # imp.load_source need a real file object, so we create
+            # one from the file-like object we get from file_open
+            fp2 = os.tmpfile()
+            fp2.write(fp.read())
+            fp2.seek(0)
+
+        try:
+            return imp.load_source(module_name, fname, fp2 or fp)
+        finally:
+            if fp:
+                fp.close()
+            if fp2:
+                fp2.close()
+
+else:
+    import importlib.util
+    def load_script(path, module_name):
+        full_path = get_resource_path(*path.split(os.path.sep))
+        spec = importlib.util.spec_from_file_location(module_name, full_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
 
 _logger = logging.getLogger(__name__)
 
-
-def load_script(path, module_name):
-    full_path = get_resource_path(*path.split(os.path.sep)) if not os.path.isabs(path) else path
-    spec = importlib.util.spec_from_file_location(module_name, full_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
 class MigrationManager(object):
-    """ Manages the migration of modules.
-
-        Migrations files must be python files containing a ``migrate(cr, installed_version)``
-        function. These files must respect a directory tree structure: A 'migrations' folder
-        which contains a folder by version. Version can be 'module' version or 'server.module'
+    """
+        This class manage the migration of modules
+        Migrations files must be python files containing a `migrate(cr, installed_version)`
+        function. Theses files must respect a directory tree structure: A 'migrations' folder
+        which containt a folder by version. Version can be 'module' version or 'server.module'
         version (in this case, the files will only be processed by this version of the server).
-        Python file names must start by ``pre-`` or ``post-`` and will be executed, respectively,
-        before and after the module initialisation. ``end-`` scripts are run after all modules have
+        Python file names must start by `pre-` or `post-` and will be executed, respectively,
+        before and after the module initialisation. `end-` scripts are run after all modules have
         been updated.
-
-        A special folder named ``0.0.0`` can contain scripts that will be run on any version change.
-        In `pre` stage, ``0.0.0`` scripts are run first, while in ``post`` and ``end``, they are run last.
-
-        Example::
-
+        A special folder named `0.0.0` can contain scripts that will be run on any version change.
+        In `pre` stage, `0.0.0` scripts are run first, while in `post` and `end`, they are run last.
+        Example:
             <moduledir>
             `-- migrations
                 |-- 1.0
@@ -65,17 +85,11 @@ class MigrationManager(object):
         self._get_files()
 
     def _get_files(self):
-        def _get_upgrade_path(pkg):
-            for path in odoo.upgrade.__path__:
-                upgrade_path = opj(path, pkg)
-                if os.path.exists(upgrade_path):
-                    yield upgrade_path
-
         def get_scripts(path):
             if not path:
                 return {}
             return {
-                version: glob.glob(opj(path, version, '*.py'))
+                version: glob.glob1(opj(path, version), '*.py')
                 for version in os.listdir(path)
                 if os.path.isdir(opj(path, version))
             }
@@ -87,14 +101,8 @@ class MigrationManager(object):
 
             self.migrations[pkg.name] = {
                 'module': get_scripts(get_resource_path(pkg.name, 'migrations')),
-                'module_upgrades': get_scripts(get_resource_path(pkg.name, 'upgrades')),
+                'maintenance': get_scripts(get_resource_path('base', 'maintenance', 'migrations', pkg.name)),
             }
-
-            scripts = defaultdict(list)
-            for p in _get_upgrade_path(pkg.name):
-                for v, s in get_scripts(p).items():
-                    scripts[v].extend(s)
-            self.migrations[pkg.name]["upgrade"] = scripts
 
     def migrate_module(self, pkg, stage):
         assert stage in ('pre', 'post', 'end')
@@ -110,7 +118,7 @@ class MigrationManager(object):
 
         def convert_version(version):
             if version.count('.') >= 2:
-                return version  # the version number already contains the server version
+                return version  # the version number already containt the server version
             return "%s.%s" % (release.major_version, version)
 
         def _get_migration_versions(pkg, stage):
@@ -133,16 +141,21 @@ class MigrationManager(object):
             """ return a list of migration script files
             """
             m = self.migrations[pkg.name]
+            lst = []
 
-            return sorted(
-                (
-                    f
-                    for k in m
-                    for f in m[k].get(version, [])
-                    if os.path.basename(f).startswith(f"{stage}-")
-                ),
-                key=os.path.basename,
-            )
+            mapping = {
+                'module': opj(pkg.name, 'migrations'),
+                'maintenance': opj('base', 'maintenance', 'migrations', pkg.name),
+            }
+
+            for x in mapping:
+                if version in m.get(x):
+                    for f in m[x][version]:
+                        if not f.startswith(stage + '-'):
+                            continue
+                        lst.append(opj(mapping[x], version, f))
+            lst.sort()
+            return lst
 
         installed_version = getattr(pkg, 'load_version', pkg.installed_version) or ''
         parsed_installed_version = parse_version(installed_version)
